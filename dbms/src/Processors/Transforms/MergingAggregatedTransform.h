@@ -6,8 +6,6 @@
 namespace DB
 {
 
-using MergingAggregatedTransformParamsPtr = std::unique_ptr<MergingAggregatedTransformParams>;
-
 /** A pre-aggregate stream of blocks in which each block is already aggregated.
   * Aggregate functions in blocks should not be finalized so that their states can be merged.
   */
