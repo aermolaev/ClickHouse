@@ -91,47 +91,7 @@ Processors createMergingAggregatedMemoryEfficientPipe(
     Block header,
     AggregatingTransformParamsPtr params,
     size_t num_inputs,
-    size_t num_merging_processors)
-{
-    Processors processors;
-    processors.reserve(num_merging_processors + 2);
-
-    auto grouping = std::make_shared<GroupingAggregatedTransform>(header, num_inputs, params);
-    processors.emplace_back(std::move(grouping));
-
-    if (num_merging_processors <= 1)
-    {
-        /// --> GroupingAggregated --> MergingAggregatedBucket -->
-        auto transform = std::make_shared<MergingAggregatedBucketTransform>(params);
-        connect(processors.back()->getOutputs().front(), transform->getInputPort());
-
-        processors.emplace_back(std::move(transform));
-        return processors;
-    }
-
-    /// -->                                        --> MergingAggregatedBucket -->
-    /// --> GroupingAggregated --> ResizeProcessor --> MergingAggregatedBucket --> SortingAggregated -->
-    /// -->                                        --> MergingAggregatedBucket -->
-
-    auto resize = std::make_shared<ResizeProcessor>(header, 1, num_merging_processors);
-    connect(processors.back()->getOutputs().front(), resize->getInputs().front());
-    processors.emplace_back(std::move(resize));
-
-    auto sorting = std::make_shared<SortingAggregatedTransform>(num_merging_processors, params);
-    auto out = processors.back()->getOutputs().begin();
-    auto in = sorting->getInputs().begin();
-
-    for (size_t i = 0; i < num_merging_processors; ++i, ++in, ++out)
-    {
-        auto transform = std::make_shared<MergingAggregatedBucketTransform>(params);
-        connect(*out, transform->getInputPort());
-        connect(transform->getOutputPort(), *in);
-        processors.emplace_back(std::move(transform));
-    }
-
-    processors.emplace_back(std::move(sorting));
-    return processors;
-}
+    size_t num_merging_processors);
 
 }
 
