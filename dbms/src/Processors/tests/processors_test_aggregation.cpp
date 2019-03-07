@@ -115,8 +115,8 @@ struct measure
 int main(int, char **)
 try
 {
-    AggregateFunctionFactory factory;
     registerAggregateFunctions();
+    auto & factory = AggregateFunctionFactory::instance();
 
     auto execute = [&](String msg, ThreadPool * pool)
     {
