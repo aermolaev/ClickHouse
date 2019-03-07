@@ -24,6 +24,7 @@
 #include <Processors/Transforms/AggregatingTransform.h>
 #include <AggregateFunctions/AggregateFunctionFactory.h>
 #include <Processors/Transforms/MergingAggregatedTransform.h>
+#include <AggregateFunctions/registerAggregateFunctions.h>
 
 
 using namespace DB;
@@ -114,7 +115,10 @@ struct measure
 int main(int, char **)
 try
 {
-    auto execute = [](String msg, ThreadPool * pool)
+    AggregateFunctionFactory factory;
+    registerAggregateFunctions();
+
+    auto execute = [&](String msg, ThreadPool * pool)
     {
         std::cerr << msg << "\n";
 
@@ -130,7 +134,6 @@ try
 
         AggregateDescriptions aggregate_descriptions(1);
 
-        AggregateFunctionFactory factory;
         DataTypes empty_list_of_types;
         aggregate_descriptions[0].function = factory.get("count", empty_list_of_types);
 
