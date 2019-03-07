@@ -15,6 +15,7 @@ class GroupingAggregatedTransform : public IProcessor
 {
 public:
     GroupingAggregatedTransform(const Block & header, size_t num_inputs, AggregatingTransformParamsPtr params);
+    String getName() const override { return "GroupingAggregatedTransform"; }
 
     /// Special setting: in case if single source can return several chunks with same bucket.
     void allowSeveralChunksForSingleBucketPerSource() { expect_several_chunks_for_single_bucket_per_source = true; }
@@ -54,6 +55,7 @@ class MergingAggregatedBucketTransform : public ISimpleTransform
 {
 public:
     explicit MergingAggregatedBucketTransform(AggregatingTransformParamsPtr params);
+    String getName() const override { return "MergingAggregatedBucketTransform"; }
 
 protected:
     void transform(Chunk & chunk) override;
@@ -69,6 +71,7 @@ class SortingAggregatedTransform : public IProcessor
 {
 public:
     SortingAggregatedTransform(size_t num_inputs, AggregatingTransformParamsPtr params);
+    String getName() const override { return "SortingAggregatedTransform"; }
     Status prepare() override;
 
 private:
