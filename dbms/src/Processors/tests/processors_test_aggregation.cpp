@@ -159,7 +159,7 @@ try
 
         auto agg_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ true);
         auto aggregating = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params);
-        auto merging = std::make_shared<MergingAggregatedTransform>(aggregating->getOutputs().front().getHeader(), params, 4);
+        auto merging = std::make_shared<MergingAggregatedTransform>(aggregating->getOutputs().front().getHeader(), agg_params, 4);
         auto sink = std::make_shared<PrintSink>("");
 
         connect(source1->getPort(), limit1->getInputPort());
