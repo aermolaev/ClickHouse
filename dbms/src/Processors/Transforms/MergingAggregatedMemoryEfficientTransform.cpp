@@ -300,6 +300,8 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
         throw Exception("MergingAggregatedSimpleTransform chunk must have ChunkInfo with type ChunksToMerge.",
                         ErrorCodes::LOGICAL_ERROR);
 
+    auto header = params->aggregator.getHeader(false);
+
     BlocksList blocks_list;
     for (auto & cur_chunk : *chunks_to_merge->chunks)
     {
@@ -313,7 +315,7 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
             throw Exception("Chunk should have AggregatedChunkInfo in MergingAggregatedBucketTransform.",
                     ErrorCodes::LOGICAL_ERROR);
 
-        Block block = getInputPort().getHeader().cloneWithColumns(cur_chunk.detachColumns());
+        Block block = header.cloneWithColumns(cur_chunk.detachColumns());
         block.info.is_overflows = agg_info->is_overflows;
         block.info.bucket_num = agg_info->bucket_num;
 
