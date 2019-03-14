@@ -9,19 +9,14 @@
 #include <IO/WriteHelpers.h>
 #include <IO/ReadBuffer.h>
 #include <IO/ReadHelpers.h>
-
 #include <IO/WriteBufferFromString.h>
 #include <IO/ReadBufferFromString.h>
 #include <DataTypes/DataTypeFactory.h>
+#include <DataTypes/NestedUtils.h>
 #include <Common/Exception.h>
 #include <Interpreters/Context.h>
 #include <Storages/IStorage.h>
 #include <Common/typeid_cast.h>
-
-#include <ext/collection_cast.h>
-#include <ext/map.h>
-
-#include <boost/range/join.hpp>
 #include <Compression/CompressionFactory.h>
 
 #include <optional>
@@ -36,123 +31,48 @@ namespace ErrorCodes
     extern const int CANNOT_PARSE_TEXT;
 }
 
-
-NamesAndTypesList ColumnsDescription::getAllPhysical() const
+bool ColumnDescription::operator==(const ColumnDescription & other) const
 {
-    return ext::collection_cast<NamesAndTypesList>(boost::join(ordinary, materialized));
+    return name == other.name
+        && type->equals(*other.type)
+        && default_desc == other.default_desc
+        && comment == other.comment
+        && codec->getCodecDesc() == other.codec->getCodecDesc();
 }
 
-
-NamesAndTypesList ColumnsDescription::getAll() const
+void ColumnDescription::writeText(WriteBuffer & buf) const
 {
-    return ext::collection_cast<NamesAndTypesList>(boost::join(ordinary, boost::join(materialized, aliases)));
-}
+    writeBackQuotedString(name, buf);
+    writeChar(' ', buf);
+    DB::writeText(type->getName(), buf);
 
-
-Names ColumnsDescription::getNamesOfPhysical() const
-{
-    return ext::map<Names>(boost::join(ordinary, materialized), [] (const auto & it) { return it.name; });
-}
-
-
-NameAndTypePair ColumnsDescription::getPhysical(const String & column_name) const
-{
-    for (auto & it : boost::join(ordinary, materialized))
-        if (it.name == column_name)
-            return it;
-    throw Exception("There is no column " + column_name + " in table.", ErrorCodes::NO_SUCH_COLUMN_IN_TABLE);
-}
-
-
-bool ColumnsDescription::hasPhysical(const String & column_name) const
-{
-    for (auto & it : boost::join(ordinary, materialized))
-        if (it.name == column_name)
-            return true;
-    return false;
-}
-
-
-bool ColumnsDescription::operator==(const ColumnsDescription & other) const
-{
-    if (ordinary != other.ordinary
-        || materialized != other.materialized
-        || aliases != other.aliases
-        || defaults != other.defaults
-        || comments != other.comments)
+    if (default_desc.expression)
     {
-        return false;
+        writeChar('\t', buf);
+        DB::writeText(DB::toString(default_desc.kind), buf);
+        writeChar('\t', buf);
+        DB::writeText(queryToString(default_desc.expression), buf);
     }
 
-    if (codecs.size() != other.codecs.size())
-        return false;
-
-    for (const auto & [col_name, codec_ptr] : codecs)
+    if (!comment.empty())
     {
-        if (other.codecs.count(col_name) == 0)
-            return false;
-        if (other.codecs.at(col_name)->getCodecDesc() != codec_ptr->getCodecDesc())
-            return false;
+        writeChar('\t', buf);
+        DB::writeText("COMMENT ", buf);
+        DB::writeText(queryToString(ASTLiteral(Field(comment))), buf);
     }
-    return true;
-}
 
-String ColumnsDescription::toString() const
-{
-    WriteBufferFromOwnString buf;
-
-    writeCString("columns format version: 1\n", buf);
-    writeText(ordinary.size() + materialized.size() + aliases.size(), buf);
-    writeCString(" columns:\n", buf);
-
-    const auto write_columns = [this, &buf] (const NamesAndTypesList & columns)
+    if (codec)
     {
-        for (const auto & column : columns)
-        {
-            const auto defaults_it = defaults.find(column.name);
-            const auto comments_it = comments.find(column.name);
-            const auto codec_it = codecs.find(column.name);
+        writeChar('\t', buf);
+        DB::writeText("CODEC(", buf);
+        DB::writeText(codec->getCodecDesc(), buf);
+        DB::writeText(")", buf);
+    }
 
-            writeBackQuotedString(column.name, buf);
-            writeChar(' ', buf);
-            writeText(column.type->getName(), buf);
-
-            const bool exist_comment = comments_it != std::end(comments);
-            const bool exist_codec = codec_it != std::end(codecs);
-            if (defaults_it != std::end(defaults))
-            {
-                writeChar('\t', buf);
-                writeText(DB::toString(defaults_it->second.kind), buf);
-                writeChar('\t', buf);
-                writeText(queryToString(defaults_it->second.expression), buf);
-            }
-
-            if (exist_comment)
-            {
-                writeChar('\t', buf);
-                writeText("COMMENT ", buf);
-                writeText(queryToString(ASTLiteral(Field(comments_it->second))), buf);
-            }
-
-            if (exist_codec)
-            {
-                writeChar('\t', buf);
-                writeText("CODEC(", buf);
-                writeText(codec_it->second->getCodecDesc(), buf);
-                writeText(")", buf);
-            }
-
-            writeChar('\n', buf);
-        }
-    };
-
-    write_columns(ordinary);
-    write_columns(materialized);
-    write_columns(aliases);
-    return buf.str();
+    writeChar('\n', buf);
 }
 
-void parseColumn(ReadBufferFromString & buf, ColumnsDescription & result, const DataTypeFactory & data_type_factory)
+void ColumnDescription::readText(ReadBuffer & buf)
 {
     ParserColumnDeclaration column_parser(true);
     String column_line;
@@ -160,52 +80,177 @@ void parseColumn(ReadBufferFromString & buf, ColumnsDescription & result, const 
     ASTPtr ast = parseQuery(column_parser, column_line, "column parser", 0);
     if (const ASTColumnDeclaration * col_ast = typeid_cast<const ASTColumnDeclaration *>(ast.get()))
     {
-        String column_name = col_ast->name;
-        auto type = data_type_factory.get(col_ast->type);
+        name = col_ast->name;
+        type = DataTypeFactory::instance().get(col_ast->type);
 
         if (col_ast->default_expression)
         {
-            auto kind = columnDefaultKindFromString(col_ast->default_specifier);
-            switch (kind)
-            {
-            case ColumnDefaultKind::Default:
-                result.ordinary.emplace_back(column_name, std::move(type));
-                break;
-            case ColumnDefaultKind::Materialized:
-                result.materialized.emplace_back(column_name, std::move(type));
-                break;
-            case ColumnDefaultKind::Alias:
-                result.aliases.emplace_back(column_name, std::move(type));
-                break;
-            }
-
-            result.defaults.emplace(column_name, ColumnDefault{kind, std::move(col_ast->default_expression)});
+            default_desc.kind = columnDefaultKindFromString(col_ast->default_specifier);
+            default_desc.expression = std::move(col_ast->default_expression);
         }
-        else
-            result.ordinary.emplace_back(column_name, std::move(type));
 
         if (col_ast->comment)
-            if (auto comment_str = typeid_cast<ASTLiteral &>(*col_ast->comment).value.get<String>(); !comment_str.empty())
-                result.comments.emplace(column_name, std::move(comment_str));
+            comment = typeid_cast<ASTLiteral &>(*col_ast->comment).value.get<String>();
 
         if (col_ast->codec)
-        {
-            auto codec = CompressionCodecFactory::instance().get(col_ast->codec, type);
-            result.codecs.emplace(column_name, std::move(codec));
-        }
+            codec = CompressionCodecFactory::instance().get(col_ast->codec, type);
     }
     else
         throw Exception("Cannot parse column description", ErrorCodes::CANNOT_PARSE_TEXT);
 }
 
+ColumnsDescription::ColumnsDescription(NamesAndTypesList ordinary)
+{
+    for (auto & elem : ordinary)
+        add(ColumnDescription(std::move(elem.name), std::move(elem.type)));
+}
+
+ColumnDefaults ColumnsDescription::getDefaults() const
+{
+    ColumnDefaults ret;
+    for (const auto & column : columns)
+    {
+        if (column.default_desc.expression)
+            ret.emplace(column.name, column.default_desc);
+    }
+
+    return ret;
+}
+
+void ColumnsDescription::flattenNested()
+{
+    /// TODO: implementation without the temporary NamesAndTypesList of all columns.
+    auto all_columns = getAll();
+    std::unordered_map<std::string, std::vector<std::string>> mapping;
+    Nested::flattenWithMapping(all_columns, mapping);
+    for (auto column_it = name_to_column.begin(); column_it != name_to_column.end(); )
+    {
+        auto mapping_it = mapping.find(column_it->second->name);
+        if (mapping_it != mapping.end())
+        {
+            ColumnDescription column = std::move(*column_it->second);
+            auto insert_it = columns.erase(column_it->second);
+            for (const auto & nested_name : mapping_it->second)
+            {
+                auto nested_column = column;
+                /// TODO: what to do with default expressions?
+                nested_column.name = nested_name;
+                insert_it = columns.insert(insert_it, std::move(nested_column));
+                name_to_column.emplace(nested_name, insert_it);
+                ++insert_it;
+            }
+        }
+        else
+            ++column_it;
+    }
+}
+
+
+NamesAndTypesList ColumnsDescription::getOrdinary() const
+{
+    NamesAndTypesList ret;
+    for (const auto & col : columns)
+    {
+        if (col.default_desc.kind == ColumnDefaultKind::Default)
+            ret.emplace_back(col.name, col.type);
+    }
+    return ret;
+}
+
+NamesAndTypesList ColumnsDescription::getMaterialized() const
+{
+    NamesAndTypesList ret;
+    for (const auto & col : columns)
+    {
+        if (col.default_desc.kind == ColumnDefaultKind::Materialized)
+            ret.emplace_back(col.name, col.type);
+    }
+    return ret;
+}
+
+NamesAndTypesList ColumnsDescription::getAliases() const
+{
+    NamesAndTypesList ret;
+    for (const auto & col : columns)
+    {
+        if (col.default_desc.kind == ColumnDefaultKind::Alias)
+            ret.emplace_back(col.name, col.type);
+    }
+    return ret;
+}
+
+NamesAndTypesList ColumnsDescription::getAllPhysical() const
+{
+    NamesAndTypesList ret;
+    for (const auto & col : columns)
+    {
+        if (col.default_desc.kind != ColumnDefaultKind::Alias)
+            ret.emplace_back(col.name, col.type);
+    }
+    return ret;
+}
+
+
+NamesAndTypesList ColumnsDescription::getAll() const
+{
+    NamesAndTypesList ret;
+    for (const auto & col : columns)
+        ret.emplace_back(col.name, col.type);
+    return ret;
+}
+
+
+Names ColumnsDescription::getNamesOfPhysical() const
+{
+    Names ret;
+    for (const auto & col : columns)
+    {
+        if (col.default_desc.kind != ColumnDefaultKind::Alias)
+            ret.emplace_back(col.name);
+    }
+    return ret;
+}
+
+
+NameAndTypePair ColumnsDescription::getPhysical(const String & column_name) const
+{
+    auto it = name_to_column.find(column_name);
+    if (it == name_to_column.end() || it->second->default_desc.kind == ColumnDefaultKind::Alias)
+        throw Exception("There is no column " + column_name + " in table.", ErrorCodes::NO_SUCH_COLUMN_IN_TABLE);
+    return NameAndTypePair(it->second->name, it->second->type);
+}
+
+
+bool ColumnsDescription::hasPhysical(const String & column_name) const
+{
+    auto it = name_to_column.find(column_name);
+    return it != name_to_column.end() && it->second->default_desc.kind != ColumnDefaultKind::Alias;
+}
+
+
+String ColumnsDescription::toString() const
+{
+    WriteBufferFromOwnString buf;
+
+    writeCString("columns format version: 1\n", buf);
+    DB::writeText(columns.size(), buf);
+    writeCString(" columns:\n", buf);
+
+    for (const ColumnDescription & column : columns)
+        column.writeText(buf);
+
+    return buf.str();
+}
+
+
 CompressionCodecPtr ColumnsDescription::getCodecOrDefault(const String & column_name, CompressionCodecPtr default_codec) const
 {
-    const auto codec = codecs.find(column_name);
+    const auto it = name_to_column.find(column_name);
 
-    if (codec == codecs.end())
+    if (it == name_to_column.end() || !it->second->codec)
         return default_codec;
 
-    return codec->second;
+    return it->second->codec;
 }
 
 
@@ -223,13 +268,13 @@ ColumnsDescription ColumnsDescription::parse(const String & str)
     readText(count, buf);
     assertString(" columns:\n", buf);
 
-    const DataTypeFactory & data_type_factory = DataTypeFactory::instance();
-
     ColumnsDescription result;
     for (size_t i = 0; i < count; ++i)
     {
-        parseColumn(buf, result, data_type_factory);
+        ColumnDescription column;
+        column.readText(buf);
         buf.ignore(1); /// ignore new line
+        result.add(std::move(column));
     }
 
     assertEOF(buf);
