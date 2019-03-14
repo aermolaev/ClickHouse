@@ -183,15 +183,18 @@ try
 
     auto execute_one_stream = [&](String msg, ThreadPool * pool, bool two_level, bool external)
     {
-        std::cerr << msg << "\n";
+        std::cerr << '\n' << msg << "\n";
 
-        auto source1 = std::make_shared<NumbersSource>(0, 1, 10, 0);
-        auto source2 = std::make_shared<NumbersSource>(0, 1, 10, 0);
-        auto source3 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        size_t num_rows = 1000000;
+        size_t block_size = 1000;
 
-        auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), 100, 0);
-        auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), 100, 0);
-        auto limit3 = std::make_shared<LimitTransform>(source3->getPort().getHeader(), 100, 0);
+        auto source1 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+        auto source2 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+        auto source3 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+
+        auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), num_rows, 0);
+        auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), num_rows, 0);
+        auto limit3 = std::make_shared<LimitTransform>(source3->getPort().getHeader(), num_rows, 0);
 
         auto resize = std::make_shared<ResizeProcessor>(source1->getPort().getHeader(), 3, 1);
 
@@ -256,15 +259,18 @@ try
 
     auto execute_mult_streams = [&](String msg, ThreadPool * pool, bool two_level, bool external)
     {
-        std::cerr << msg << "\n";
+        std::cerr << '\n' << msg << "\n";
 
-        auto source1 = std::make_shared<NumbersSource>(0, 1, 10, 0);
-        auto source2 = std::make_shared<NumbersSource>(0, 1, 10, 0);
-        auto source3 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        size_t num_rows = 1000000;
+        size_t block_size = 1000;
 
-        auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), 100, 0);
-        auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), 100, 0);
-        auto limit3 = std::make_shared<LimitTransform>(source3->getPort().getHeader(), 100, 0);
+        auto source1 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+        auto source2 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+        auto source3 = std::make_shared<NumbersSource>(0, 1, block_size, 0);
+
+        auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), num_rows, 0);
+        auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), num_rows, 0);
+        auto limit3 = std::make_shared<LimitTransform>(source3->getPort().getHeader(), num_rows, 0);
 
         AggregateDescriptions aggregate_descriptions(1);
 
