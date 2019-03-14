@@ -136,8 +136,10 @@ try
 
         AggregateDescriptions aggregate_descriptions(1);
 
-        DataTypes empty_list_of_types;
-        aggregate_descriptions[0].function = factory.get("count", empty_list_of_types);
+        DataTypes sum_types;
+        sum_types.emplace_back(std::make_shared<UInt64>());
+        aggregate_descriptions[0].function = factory.get("count", sum_types);
+        aggregate_descriptions[0].arguments = {0};
 
         bool overflow_row = false; /// Without overflow row.
         size_t max_rows_to_group_by = 0; /// All.
