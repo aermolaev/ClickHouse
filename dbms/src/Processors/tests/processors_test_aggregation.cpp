@@ -142,6 +142,15 @@ private:
                 throw Exception("Check Failed. Got (" + toString(values[0]) + ", " + toString(values[1]) + ") in result,"
                                + "but "  + toString(values[0]) + " * 3 !=  " + toString(values[1]),
                                ErrorCodes::LOGICAL_ERROR);
+
+            if (values[0] >= read_rows.size())
+                throw Exception("Check Failed. Got string with number " + toString(values[0]) +
+                                " (max " + toString(read_rows.size()), ErrorCodes::LOGICAL_ERROR);
+
+            if (read_rows[values[0]])
+                throw Exception("Row " + toString(values[0]) + " was already read.", ErrorCodes::LOGICAL_ERROR);
+
+            read_rows[values[0]] = true;
         }
     }
 };
