@@ -295,7 +295,7 @@ try
     exec(execute_mult_streams, "Multiple streams, multiple threads", &pool);
 
     for (size_t i = 0; i < messages.size(); ++i)
-        std::cout << messages[i] << " time: " << times[i] << " ms.";
+        std::cout << messages[i] << " time: " << times[i] << " ms.\n";
 
     return 0;
 }
