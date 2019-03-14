@@ -101,6 +101,51 @@ private:
     }
 };
 
+class CheckSink : public ISink
+{
+public:
+    String getName() const override { return "Check"; }
+
+    CheckSink(Block header, size_t num_rows)
+            : ISink(std::move(header)), read_rows(num_rows, false)
+    {
+    }
+
+    void checkAllRead()
+    {
+        for (size_t i = 0; i < read_rows.size(); ++i)
+        {
+           if (!read_rows[i])
+           {
+               throw Exception("Check Failed. Row " + toString(i) + " was not read.", ErrorCodes::LOGICAL_ERROR);
+           }
+        }
+    }
+
+private:
+    std::vector<bool> read_rows;
+
+    void consume(Chunk chunk) override
+    {
+        size_t rows = chunk.getNumRows();
+        size_t columns = chunk.getNumColumns();
+
+        for (size_t row_num = 0; row_num < rows; ++row_num)
+        {
+            std::vector<UInt64> values(columns);
+            for (size_t column_num = 0; column_num < columns; ++column_num)
+            {
+                values[column_num] = chunk.getColumns()[column_num]->getUInt(row_num);
+            }
+
+            if (3 * values[0] != values[1])
+                throw Exception("Check Failed. Got (" + toString(values[0]) + ", " + toString(values[1]) + ") in result,"
+                               + "but "  + toString(values[0]) + " * 3 !=  " + toString(values[1]),
+                               ErrorCodes::LOGICAL_ERROR);
+        }
+    }
+};
+
 template<typename TimeT = std::chrono::milliseconds>
 struct measure
 {
@@ -174,7 +219,7 @@ try
         auto merge_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ true);
         auto aggregating = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params);
         auto merging = std::make_shared<MergingAggregatedTransform>(aggregating->getOutputs().front().getHeader(), merge_params, 4);
-        auto sink = std::make_shared<PrintSink>("", merging->getOutputPort().getHeader());
+        auto sink = std::make_shared<CheckSink>(merging->getOutputPort().getHeader(), 300);
 
         connect(source1->getPort(), limit1->getInputPort());
         connect(source2->getPort(), limit2->getInputPort());
@@ -254,7 +299,7 @@ try
                 merge_params,
                 3, 2);
 
-        auto sink = std::make_shared<PrintSink>("", merging_pipe.back()->getOutputs().back().getHeader());
+        auto sink = std::make_shared<CheckSink>(merging_pipe.back()->getOutputs().back().getHeader(), 300);
 
         connect(source1->getPort(), limit1->getInputPort());
         connect(source2->getPort(), limit2->getInputPort());
