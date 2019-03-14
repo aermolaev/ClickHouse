@@ -124,9 +124,9 @@ try
     {
         std::cerr << msg << "\n";
 
-        auto source1 = std::make_shared<NumbersSource>(0, 0, 10, 0);
-        auto source2 = std::make_shared<NumbersSource>(0, 0, 10, 0);
-        auto source3 = std::make_shared<NumbersSource>(0, 0, 10, 0);
+        auto source1 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        auto source2 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        auto source3 = std::make_shared<NumbersSource>(0, 1, 10, 0);
 
         auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), 100, 0);
         auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), 100, 0);
