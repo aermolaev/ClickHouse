@@ -103,7 +103,7 @@ bool GroupingAggregatedTransform::tryPushSingleLevelData()
     if (single_level_chunks.empty())
         return false;
 
-    pushData(single_level_chunks, -1, false);
+    pushData(std::move(single_level_chunks), -1, false);
     return true;
 }
 
@@ -112,7 +112,7 @@ bool GroupingAggregatedTransform::tryPushOverflowData()
     if (overflow_chunks.empty())
         return false;
 
-    pushData(overflow_chunks, -1, true);
+    pushData(std::move(overflow_chunks), -1, true);
     return true;
 }
 
