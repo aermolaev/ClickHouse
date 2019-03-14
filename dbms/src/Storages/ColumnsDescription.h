@@ -38,12 +38,7 @@ public:
     ColumnsDescription() = default;
     explicit ColumnsDescription(NamesAndTypesList ordinary_);
 
-    void add(ColumnDescription column)
-    {
-        /// TODO: check that the column doesn't exist.
-        auto it = columns.insert(columns.end(), std::move(column));
-        name_to_column.emplace(it->name, it);
-    }
+    void add(ColumnDescription column);
 
     void flattenNested();
 
@@ -54,27 +49,22 @@ public:
     std::list<ColumnDescription>::const_iterator end() const { return columns.end(); }
 
     NamesAndTypesList getOrdinary() const;
-
     NamesAndTypesList getMaterialized() const;
-
     NamesAndTypesList getAliases() const;
-
     /// ordinary + materialized.
     NamesAndTypesList getAllPhysical() const;
-
     /// ordinary + materialized + aliases.
     NamesAndTypesList getAll() const;
 
     Names getNamesOfPhysical() const;
-
+    bool hasPhysical(const String & column_name) const;
     NameAndTypePair getPhysical(const String & column_name) const;
 
-    bool hasPhysical(const String & column_name) const;
-
     ColumnDefaults getDefaults() const; /// TODO: remove
+    bool hasDefault(const String & column_name) const;
+    std::optional<ColumnDefault> getDefault(const String & column_name) const;
 
     CompressionCodecPtr getCodecOrDefault(const String & column_name, CompressionCodecPtr default_codec) const;
-
     CompressionCodecPtr getCodecOrDefault(const String & column_name) const;
 
     String toString() const;

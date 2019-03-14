@@ -105,16 +105,11 @@ ColumnsDescription::ColumnsDescription(NamesAndTypesList ordinary)
         add(ColumnDescription(std::move(elem.name), std::move(elem.type)));
 }
 
-ColumnDefaults ColumnsDescription::getDefaults() const
+void ColumnsDescription::add(ColumnDescription column)
 {
-    ColumnDefaults ret;
-    for (const auto & column : columns)
-    {
-        if (column.default_desc.expression)
-            ret.emplace(column.name, column.default_desc);
-    }
-
-    return ret;
+    /// TODO: check that the column doesn't exist.
+    auto it = columns.insert(columns.end(), std::move(column));
+    name_to_column.emplace(it->name, it);
 }
 
 void ColumnsDescription::flattenNested()
@@ -211,7 +206,6 @@ Names ColumnsDescription::getNamesOfPhysical() const
     return ret;
 }
 
-
 NameAndTypePair ColumnsDescription::getPhysical(const String & column_name) const
 {
     auto it = name_to_column.find(column_name);
@@ -220,11 +214,54 @@ NameAndTypePair ColumnsDescription::getPhysical(const String & column_name) cons
     return NameAndTypePair(it->second->name, it->second->type);
 }
 
-
 bool ColumnsDescription::hasPhysical(const String & column_name) const
 {
     auto it = name_to_column.find(column_name);
     return it != name_to_column.end() && it->second->default_desc.kind != ColumnDefaultKind::Alias;
+}
+
+
+ColumnDefaults ColumnsDescription::getDefaults() const
+{
+    ColumnDefaults ret;
+    for (const auto & column : columns)
+    {
+        if (column.default_desc.expression)
+            ret.emplace(column.name, column.default_desc);
+    }
+
+    return ret;
+}
+
+bool ColumnsDescription::hasDefault(const String & column_name) const
+{
+    auto it = name_to_column.find(column_name);
+    return it != name_to_column.end() && it->second->default_desc.expression;
+}
+
+std::optional<ColumnDefault> ColumnsDescription::getDefault(const String & column_name) const
+{
+    auto it = name_to_column.find(column_name);
+    if (it != name_to_column.end() && it->second->default_desc.expression)
+        return it->second->default_desc;
+
+    return {};
+}
+
+
+CompressionCodecPtr ColumnsDescription::getCodecOrDefault(const String & column_name, CompressionCodecPtr default_codec) const
+{
+    const auto it = name_to_column.find(column_name);
+
+    if (it == name_to_column.end() || !it->second->codec)
+        return default_codec;
+
+    return it->second->codec;
+}
+
+CompressionCodecPtr ColumnsDescription::getCodecOrDefault(const String & column_name) const
+{
+    return getCodecOrDefault(column_name, CompressionCodecFactory::instance().getDefaultCodec());
 }
 
 
@@ -240,23 +277,6 @@ String ColumnsDescription::toString() const
         column.writeText(buf);
 
     return buf.str();
-}
-
-
-CompressionCodecPtr ColumnsDescription::getCodecOrDefault(const String & column_name, CompressionCodecPtr default_codec) const
-{
-    const auto it = name_to_column.find(column_name);
-
-    if (it == name_to_column.end() || !it->second->codec)
-        return default_codec;
-
-    return it->second->codec;
-}
-
-
-CompressionCodecPtr ColumnsDescription::getCodecOrDefault(const String & column_name) const
-{
-    return getCodecOrDefault(column_name, CompressionCodecFactory::instance().getDefaultCodec());
 }
 
 ColumnsDescription ColumnsDescription::parse(const String & str)
