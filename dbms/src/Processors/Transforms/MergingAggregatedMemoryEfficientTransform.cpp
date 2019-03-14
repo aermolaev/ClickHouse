@@ -320,7 +320,7 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
         blocks_list.emplace_back(std::move(block));
     }
 
-    chunk.setChunkInfo(nullptr);
+    // chunk.setChunkInfo(nullptr);
 
     auto block = params->aggregator.mergeBlocks(blocks_list, params->final);
     size_t num_rows = block.rows();
@@ -340,9 +340,9 @@ bool SortingAggregatedTransform::tryPushChunk()
 {
     auto & output = outputs.front();
 
-    UInt32 min_bucket = last_bucket_number[0];
+    Int32 min_bucket = last_bucket_number[0];
     for (auto & bucket : last_bucket_number)
-        min_bucket = std::min<UInt32>(min_bucket, bucket);
+        min_bucket = std::min<Int32>(min_bucket, bucket);
 
     auto it = chunks.find(min_bucket);
     if (it != chunks.end())
@@ -358,11 +358,11 @@ void SortingAggregatedTransform::addChunk(Chunk chunk)
 {
     auto & info = chunk.getChunkInfo();
     if (!info)
-        throw Exception("Chunk info was not set for chunk in GroupingAggregatedTransform.", ErrorCodes::LOGICAL_ERROR);
+        throw Exception("Chunk info was not set for chunk in SortingAggregatedTransform.", ErrorCodes::LOGICAL_ERROR);
 
     auto * agg_info = typeid_cast<const AggregatedChunkInfo *>(info.get());
     if (!agg_info)
-        throw Exception("Chunk should have AggregatedChunkInfo in GroupingAggregatedTransform.", ErrorCodes::LOGICAL_ERROR);
+        throw Exception("Chunk should have AggregatedChunkInfo in SortingAggregatedTransform.", ErrorCodes::LOGICAL_ERROR);
 
     Int32 bucket = agg_info->bucket_num;
     bool is_overflows = agg_info->is_overflows;
