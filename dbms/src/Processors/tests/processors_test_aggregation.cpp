@@ -260,8 +260,8 @@ try
 
         auto it = merging_pipe.front()->getInputs().begin();
         connect(aggregating1->getOutputs().front(), *(it++));
-        connect(aggregating1->getOutputs().front(), *(it++));
-        connect(aggregating1->getOutputs().front(), *(it++));
+        connect(aggregating2->getOutputs().front(), *(it++));
+        connect(aggregating3->getOutputs().front(), *(it++));
 
         connect(merging_pipe.back()->getOutputs().back(), sink->getPort());
 
