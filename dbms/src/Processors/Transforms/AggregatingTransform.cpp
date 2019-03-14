@@ -124,7 +124,7 @@ IProcessor::Status AggregatingTransform::prepare()
     }
 
     /// Finish data processing, prepare to generating.
-    if (!is_consume_finished && !is_generate_initialized)
+    if (is_consume_finished && !is_generate_initialized)
         return Status::Ready;
 
     if (is_generate_initialized && !is_pipeline_created)
