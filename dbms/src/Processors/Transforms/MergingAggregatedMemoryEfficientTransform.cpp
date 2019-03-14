@@ -353,6 +353,7 @@ bool SortingAggregatedTransform::tryPushChunk()
     if (it != chunks.end())
     {
         output.push(std::move(it->second));
+        chunks.erase(it);
         return true;
     }
 
