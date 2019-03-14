@@ -25,6 +25,7 @@
 #include <AggregateFunctions/AggregateFunctionFactory.h>
 #include <Processors/Transforms/MergingAggregatedTransform.h>
 #include <AggregateFunctions/registerAggregateFunctions.h>
+#include <Processors/Transforms/MergingAggregatedMemoryEfficientTransform.h>
 
 
 using namespace DB;
@@ -120,7 +121,7 @@ try
     registerAggregateFunctions();
     auto & factory = AggregateFunctionFactory::instance();
 
-    auto execute = [&](String msg, ThreadPool * pool)
+    auto execute_one_stream = [&](String msg, ThreadPool * pool)
     {
         std::cerr << msg << "\n";
 
@@ -192,13 +193,104 @@ try
         executor.execute();
     };
 
+    auto execute_mult_streams = [&](String msg, ThreadPool * pool)
+    {
+        std::cerr << msg << "\n";
+
+        auto source1 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        auto source2 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+        auto source3 = std::make_shared<NumbersSource>(0, 1, 10, 0);
+
+        auto limit1 = std::make_shared<LimitTransform>(source1->getPort().getHeader(), 100, 0);
+        auto limit2 = std::make_shared<LimitTransform>(source2->getPort().getHeader(), 100, 0);
+        auto limit3 = std::make_shared<LimitTransform>(source3->getPort().getHeader(), 100, 0);
+
+        AggregateDescriptions aggregate_descriptions(1);
+
+        DataTypes sum_types = { std::make_shared<DataTypeUInt64>() };
+        aggregate_descriptions[0].function = factory.get("sum", sum_types);
+        aggregate_descriptions[0].arguments = {0};
+
+        bool overflow_row = false; /// Without overflow row.
+        size_t max_rows_to_group_by = 0; /// All.
+        size_t group_by_two_level_threshold = 0; /// Always single level.
+        size_t group_by_two_level_threshold_bytes = 0; /// Always single level.
+        size_t max_bytes_before_external_group_by = 0; /// No external group by.
+
+        Aggregator::Params params(
+                source1->getPort().getHeader(),
+                {0},
+                aggregate_descriptions,
+                overflow_row,
+                max_rows_to_group_by,
+                OverflowMode::THROW,
+                nullptr, /// No compiler
+                0, /// min_count_to_compile
+                group_by_two_level_threshold,
+                group_by_two_level_threshold_bytes,
+                max_bytes_before_external_group_by,
+                false, /// empty_result_for_aggregation_by_empty_set
+                "", /// tmp_path
+                1 /// max_threads
+        );
+
+        auto agg_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ false);
+        auto merge_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ true);
+
+        ManyAggregatedDataPtr data = std::make_unique<ManyAggregatedData>(3);
+
+        auto aggregating1 = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params, data, 0, 4, 4);
+        auto aggregating2 = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params, data, 1, 4, 4);
+        auto aggregating3 = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params, data, 2, 4, 4);
+
+        Processors merging_pipe = createMergingAggregatedMemoryEfficientPipe(
+                aggregating1->getOutputs().front().getHeader(),
+                merge_params,
+                3, 2);
+
+        auto sink = std::make_shared<PrintSink>("", merging_pipe.back()->getOutputs().back().getHeader());
+
+        connect(source1->getPort(), limit1->getInputPort());
+        connect(source2->getPort(), limit2->getInputPort());
+        connect(source3->getPort(), limit3->getInputPort());
+
+        auto it = merging_pipe.front()->getInputs().begin();
+        connect(limit1->getOutputPort(), *(it++));
+        connect(limit2->getOutputPort(), *(it++));
+        connect(limit3->getOutputPort(), *(it++));
+
+        connect(merging_pipe.back()->getOutputs().back(), sink->getPort());
+
+        std::vector<ProcessorPtr> processors = {source1, source2, source3,
+                                                limit1, limit2, limit3, sink};
+
+        processors.insert(processors.end(), merging_pipe.begin(), merging_pipe.end());
+//        WriteBufferFromOStream out(std::cout);
+//        printPipeline(processors, out);
+
+        PipelineExecutor executor(processors, pool);
+        executor.execute();
+    };
+
     ThreadPool pool(4, 4, 10);
+    std::vector<String> messages;
+    std::vector<Int64> times;
 
-    auto time_single = measure<>::execution(execute, "Single thread", nullptr);
-    auto time_mt = measure<>::execution(execute, "Multiple threads",&pool);
+    auto exec = [&](auto func, String msg, ThreadPool * pool)
+    {
+        auto time = measure<>::execution(func, msg, pool);
+        messages.emplace_back(message);
+        times.emplace_back(time);
+    };
 
-    std::cout << "Single Thread time: " << time_single << " ms.\n";
-    std::cout << "Multiple Threads time: " << time_mt << " ms.\n";
+    exec(execute_one_stream, "One stream, single thread", nullptr);
+    exec(execute_one_stream, "One stream, multiple threads", &pool);
+
+    exec(execute_mult_streams, "Multiple streams, single thread", nullptr);
+    exec(execute_mult_streams, "Multiple streams, multiple threads", &pool);
+
+    for (size_t i = 0; i < messages.size(); ++i)
+        std::cout << messages[i] << " time: " << times[i] << " ms.";
 
     return 0;
 }
