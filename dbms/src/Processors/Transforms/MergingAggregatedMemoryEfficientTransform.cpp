@@ -302,7 +302,23 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
 
     BlocksList blocks_list;
     for (auto & cur_chunk : *chunks_to_merge->chunks)
-        blocks_list.emplace_back(getInputPort().getHeader().cloneWithColumns(cur_chunk.detachColumns()));
+    {
+        auto & cur_info = cur_chunk.getChunkInfo();
+        if (!cur_info)
+            throw Exception("Chunk info was not set for chunk in MergingAggregatedBucketTransform.",
+                    ErrorCodes::LOGICAL_ERROR);
+
+        auto * agg_info = typeid_cast<const AggregatedChunkInfo *>(cur_info.get());
+        if (!agg_info)
+            throw Exception("Chunk should have AggregatedChunkInfo in MergingAggregatedBucketTransform.",
+                    ErrorCodes::LOGICAL_ERROR);
+
+        Block block = getInputPort().getHeader().cloneWithColumns(cur_chunk.detachColumns());
+        block.info.is_overflows = agg_info->is_overflows;
+        block.info.bucket_num = agg_info->bucket_num;
+
+        blocks_list.emplace_back();
+    }
 
     chunk.setChunkInfo(nullptr);
 
