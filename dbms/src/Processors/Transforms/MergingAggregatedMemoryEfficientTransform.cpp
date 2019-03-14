@@ -322,7 +322,10 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
         blocks_list.emplace_back(std::move(block));
     }
 
-    // chunk.setChunkInfo(nullptr);
+    auto res_info = std::make_shared<AggregatedChunkInfo>();
+    res_info->is_overflows = chunks_to_merge->is_overflows;
+    res_info->bucket_num = chunks_to_merge->bucket_num;
+    chunk.setChunkInfo(std::move(res_info));
 
     auto block = params->aggregator.mergeBlocks(blocks_list, params->final);
     size_t num_rows = block.rows();
