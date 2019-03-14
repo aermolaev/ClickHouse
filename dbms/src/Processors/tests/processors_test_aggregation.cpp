@@ -266,7 +266,8 @@ try
         connect(merging_pipe.back()->getOutputs().back(), sink->getPort());
 
         std::vector<ProcessorPtr> processors = {source1, source2, source3,
-                                                limit1, limit2, limit3, sink};
+                                                limit1, limit2, limit3,
+                                                aggregating1, aggregating2, aggregating3, sink};
 
         processors.insert(processors.end(), merging_pipe.begin(), merging_pipe.end());
 //        WriteBufferFromOStream out(std::cout);
