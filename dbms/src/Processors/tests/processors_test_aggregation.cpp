@@ -279,7 +279,7 @@ try
     auto exec = [&](auto func, String msg, ThreadPool * pool)
     {
         auto time = measure<>::execution(func, msg, pool);
-        messages.emplace_back(message);
+        messages.emplace_back(msg);
         times.emplace_back(time);
     };
 
