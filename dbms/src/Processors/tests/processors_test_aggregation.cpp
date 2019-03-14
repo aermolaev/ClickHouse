@@ -254,10 +254,14 @@ try
         connect(source2->getPort(), limit2->getInputPort());
         connect(source3->getPort(), limit3->getInputPort());
 
+        connect(limit1->getOutputPort(), aggregating1->getInputs().front());
+        connect(limit2->getOutputPort(), aggregating2->getInputs().front());
+        connect(limit3->getOutputPort(), aggregating3->getInputs().front());
+
         auto it = merging_pipe.front()->getInputs().begin();
-        connect(limit1->getOutputPort(), *(it++));
-        connect(limit2->getOutputPort(), *(it++));
-        connect(limit3->getOutputPort(), *(it++));
+        connect(aggregating1->getOutputs().front(), *(it++));
+        connect(aggregating1->getOutputs().front(), *(it++));
+        connect(aggregating1->getOutputs().front(), *(it++));
 
         connect(merging_pipe.back()->getOutputs().back(), sink->getPort());
 
