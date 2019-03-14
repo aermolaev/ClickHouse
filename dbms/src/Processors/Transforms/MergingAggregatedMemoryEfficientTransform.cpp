@@ -449,6 +449,7 @@ IProcessor::Status SortingAggregatedTransform::prepare()
         return Status::PortFull;
     }
 
+    output.finish();
     return Status::Finished;
 }
 
