@@ -317,7 +317,7 @@ void MergingAggregatedBucketTransform::transform(Chunk & chunk)
         block.info.is_overflows = agg_info->is_overflows;
         block.info.bucket_num = agg_info->bucket_num;
 
-        blocks_list.emplace_back(block);
+        blocks_list.emplace_back(std::move(block));
     }
 
     chunk.setChunkInfo(nullptr);
