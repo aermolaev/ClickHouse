@@ -26,6 +26,8 @@
 #include <Processors/Transforms/MergingAggregatedTransform.h>
 #include <AggregateFunctions/registerAggregateFunctions.h>
 #include <Processors/Transforms/MergingAggregatedMemoryEfficientTransform.h>
+#include <Poco/ConsoleChannel.h>
+#include <Poco/AutoPtr.h>
 
 
 using namespace DB;
@@ -118,10 +120,14 @@ try
 {
     ThreadStatus thread_status;
 
+    Poco::AutoPtr<Poco::ConsoleChannel> channel = new Poco::ConsoleChannel(std::cerr);
+    Logger::root().setChannel(channel);
+    Logger::root().setLevel("trace");
+
     registerAggregateFunctions();
     auto & factory = AggregateFunctionFactory::instance();
 
-    auto execute_one_stream = [&](String msg, ThreadPool * pool)
+    auto execute_one_stream = [&](String msg, ThreadPool * pool, bool two_level, bool external)
     {
         std::cerr << msg << "\n";
 
@@ -143,9 +149,9 @@ try
 
         bool overflow_row = false; /// Without overflow row.
         size_t max_rows_to_group_by = 0; /// All.
-        size_t group_by_two_level_threshold = 0; /// Always single level.
-        size_t group_by_two_level_threshold_bytes = 0; /// Always single level.
-        size_t max_bytes_before_external_group_by = 0; /// No external group by.
+        size_t group_by_two_level_threshold = two_level ? 10 : 0;
+        size_t group_by_two_level_threshold_bytes = two_level ? 128 : 0;
+        size_t max_bytes_before_external_group_by = external ? 256 : 0;
 
         Aggregator::Params params(
                 source1->getPort().getHeader(),
@@ -193,7 +199,7 @@ try
         executor.execute();
     };
 
-    auto execute_mult_streams = [&](String msg, ThreadPool * pool)
+    auto execute_mult_streams = [&](String msg, ThreadPool * pool, bool two_level, bool external)
     {
         std::cerr << msg << "\n";
 
@@ -213,9 +219,9 @@ try
 
         bool overflow_row = false; /// Without overflow row.
         size_t max_rows_to_group_by = 0; /// All.
-        size_t group_by_two_level_threshold = 0; /// Always single level.
-        size_t group_by_two_level_threshold_bytes = 0; /// Always single level.
-        size_t max_bytes_before_external_group_by = 0; /// No external group by.
+        size_t group_by_two_level_threshold = two_level ? 10 : 0;
+        size_t group_by_two_level_threshold_bytes = two_level ? 128 : 0;
+        size_t max_bytes_before_external_group_by = external ? 256 : 0;
 
         Aggregator::Params params(
                 source1->getPort().getHeader(),
@@ -281,18 +287,25 @@ try
     std::vector<String> messages;
     std::vector<Int64> times;
 
-    auto exec = [&](auto func, String msg, ThreadPool * pool)
+    auto exec = [&](auto func, String msg, ThreadPool * pool, bool two_level, bool external)
     {
-        auto time = measure<>::execution(func, msg, pool);
+        msg += ", two_level = " + toString(two_level) + ", external = " + toString(external);
+        auto time = measure<>::execution(func, msg, pool, two_level, external);
         messages.emplace_back(msg);
         times.emplace_back(time);
     };
 
-    exec(execute_one_stream, "One stream, single thread", nullptr);
-    exec(execute_one_stream, "One stream, multiple threads", &pool);
+    exec(execute_one_stream, "One stream, single thread", nullptr, false, false);
+    exec(execute_one_stream, "One stream, multiple threads", &pool, false, false);
 
-    exec(execute_mult_streams, "Multiple streams, single thread", nullptr);
-    exec(execute_mult_streams, "Multiple streams, multiple threads", &pool);
+    exec(execute_mult_streams, "Multiple streams, single thread", nullptr, false, false);
+    exec(execute_mult_streams, "Multiple streams, multiple threads", &pool, false, false);
+
+    exec(execute_one_stream, "One stream, single thread", nullptr, true, false);
+    exec(execute_one_stream, "One stream, multiple threads", &pool, true, false);
+
+    exec(execute_one_stream, "One stream, single thread", nullptr, false, true);
+    exec(execute_one_stream, "One stream, multiple threads", &pool, false, true);
 
     for (size_t i = 0; i < messages.size(); ++i)
         std::cout << messages[i] << " time: " << times[i] << " ms.\n";
