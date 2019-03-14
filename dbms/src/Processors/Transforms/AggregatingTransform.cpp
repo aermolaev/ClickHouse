@@ -189,7 +189,11 @@ Processors AggregatingTransform::expandPipeline()
 
 void AggregatingTransform::consume(Chunk chunk)
 {
-    LOG_TRACE(log, "Aggregating");
+    if (!is_consume_started)
+    {
+        LOG_TRACE(log, "Aggregating");
+        is_consume_started = true;
+    }
 
     src_rows += chunk.getNumRows();
     src_bytes += chunk.bytes();

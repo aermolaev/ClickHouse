@@ -228,7 +228,7 @@ try
         auto merge_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ true);
         auto aggregating = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params);
         auto merging = std::make_shared<MergingAggregatedTransform>(aggregating->getOutputs().front().getHeader(), merge_params, 4);
-        auto sink = std::make_shared<CheckSink>(merging->getOutputPort().getHeader(), 300);
+        auto sink = std::make_shared<CheckSink>(merging->getOutputPort().getHeader(), 100);
 
         connect(source1->getPort(), limit1->getInputPort());
         connect(source2->getPort(), limit2->getInputPort());
@@ -309,7 +309,7 @@ try
                 merge_params,
                 3, 2);
 
-        auto sink = std::make_shared<CheckSink>(merging_pipe.back()->getOutputs().back().getHeader(), 300);
+        auto sink = std::make_shared<CheckSink>(merging_pipe.back()->getOutputs().back().getHeader(), 100);
 
         connect(source1->getPort(), limit1->getInputPort());
         connect(source2->getPort(), limit2->getInputPort());
