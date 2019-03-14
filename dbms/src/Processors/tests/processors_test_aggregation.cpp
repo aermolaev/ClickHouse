@@ -242,6 +242,7 @@ try
 
         PipelineExecutor executor(processors, pool);
         executor.execute();
+        sink->checkAllRead();
     };
 
     auto execute_mult_streams = [&](String msg, ThreadPool * pool, bool two_level, bool external)
@@ -326,6 +327,7 @@ try
 
         PipelineExecutor executor(processors, pool);
         executor.execute();
+        sink->checkAllRead();
     };
 
     ThreadPool pool(4, 4, 10);
