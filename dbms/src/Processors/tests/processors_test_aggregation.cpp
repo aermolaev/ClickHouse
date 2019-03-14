@@ -137,7 +137,7 @@ try
         AggregateDescriptions aggregate_descriptions(1);
 
         DataTypes sum_types = { std::make_shared<DataTypeUInt64>() };
-        aggregate_descriptions[0].function = factory.get("count", sum_types);
+        aggregate_descriptions[0].function = factory.get("sum", sum_types);
         aggregate_descriptions[0].arguments = {0};
 
         bool overflow_row = false; /// Without overflow row.
