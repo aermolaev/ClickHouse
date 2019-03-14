@@ -66,8 +66,8 @@ class PrintSink : public ISink
 public:
     String getName() const override { return "Print"; }
 
-    PrintSink(String prefix)
-            : ISink(Block({ColumnWithTypeAndName{ ColumnUInt64::create(), std::make_shared<DataTypeUInt64>(), "number" }})),
+    PrintSink(String prefix, Block header)
+            : ISink(std::move(header)),
               prefix(std::move(prefix))
     {
     }
@@ -115,6 +115,8 @@ struct measure
 int main(int, char **)
 try
 {
+    ThreadStatus thread_status;
+
     registerAggregateFunctions();
     auto & factory = AggregateFunctionFactory::instance();
 
@@ -164,7 +166,7 @@ try
         auto merge_params = std::make_shared<AggregatingTransformParams>(params, /* final =*/ true);
         auto aggregating = std::make_shared<AggregatingTransform>(source1->getPort().getHeader(), agg_params);
         auto merging = std::make_shared<MergingAggregatedTransform>(aggregating->getOutputs().front().getHeader(), merge_params, 4);
-        auto sink = std::make_shared<PrintSink>("");
+        auto sink = std::make_shared<PrintSink>("", merging->getOutputPort().getHeader());
 
         connect(source1->getPort(), limit1->getInputPort());
         connect(source2->getPort(), limit2->getInputPort());
