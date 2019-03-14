@@ -366,8 +366,8 @@ try
     exec(execute_one_stream, "One stream, single thread", nullptr, true, false);
     exec(execute_one_stream, "One stream, multiple threads", &pool, true, false);
 
-    exec(execute_one_stream, "One stream, single thread", nullptr, false, true);
-    exec(execute_one_stream, "One stream, multiple threads", &pool, false, true);
+    exec(execute_one_stream, "One stream, single thread", nullptr, true, true);
+    exec(execute_one_stream, "One stream, multiple threads", &pool, true, true);
 
     for (size_t i = 0; i < messages.size(); ++i)
         std::cout << messages[i] << " time: " << times[i] << " ms.\n";
