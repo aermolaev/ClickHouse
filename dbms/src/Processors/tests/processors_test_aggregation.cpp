@@ -174,6 +174,7 @@ int main(int, char **)
 try
 {
     ThreadStatus thread_status;
+    CurrentThread::initializeQuery();
     auto thread_group = CurrentThread::getGroup();
 
     Poco::AutoPtr<Poco::ConsoleChannel> channel = new Poco::ConsoleChannel(std::cerr);
