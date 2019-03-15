@@ -358,6 +358,8 @@ try
 
         auto wrapper = [&]()
         {
+            ThreadStatus cur_status;
+
             CurrentThread::attachToIfDetached(thread_group);
             time = measure<>::execution(func, msg, pool, two_level, external);
         };
