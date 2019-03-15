@@ -21,7 +21,7 @@ namespace
     public:
         SourceFromNativeStream(const Block & header, const std::string & path)
                 : ISource(header), file_in(path), compressed_in(file_in)
-                , block_in(std::make_shared<NativeBlockInputStream>(compressed_in, header, 0))
+                , block_in(std::make_shared<NativeBlockInputStream>(compressed_in, ClickHouseRevision::get()))
         {
             block_in->readPrefix();
         }
