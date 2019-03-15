@@ -41,8 +41,15 @@ namespace
                 return {};
             }
 
+            auto info = std::make_shared<AggregatedChunkInfo>();
+            info->bucket_num = block.info.bucket_num;
+            info->is_overflows = block.info.is_overflows;
+
             UInt64 num_rows = block.rows();
-            return Chunk(block.getColumns(), num_rows);
+            Chunk chunk(block.getColumns(), num_rows);
+            chunk.setChunkInfo(std::move(info));
+
+            return chunk;
         }
 
     private:
