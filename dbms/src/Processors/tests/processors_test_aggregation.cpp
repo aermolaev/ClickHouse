@@ -289,7 +289,7 @@ try
         size_t max_rows_to_group_by = 0; /// All.
         size_t group_by_two_level_threshold = two_level ? 10 : 0;
         size_t group_by_two_level_threshold_bytes = two_level ? 128 : 0;
-        size_t max_bytes_before_external_group_by = external ? 256 : 0;
+        size_t max_bytes_before_external_group_by = external ? 10000000 : 0;
 
         Aggregator::Params params(
                 source1->getPort().getHeader(),
@@ -385,8 +385,14 @@ try
     exec(execute_one_stream, "One stream, single thread", nullptr, true, false);
     exec(execute_one_stream, "One stream, multiple threads", &pool, true, false);
 
+    exec(execute_mult_streams, "Multiple streams, single thread", nullptr, true, false);
+    exec(execute_mult_streams, "Multiple streams, multiple threads", &pool, true, false);
+
     exec(execute_one_stream, "One stream, single thread", nullptr, true, true);
     exec(execute_one_stream, "One stream, multiple threads", &pool, true, true);
+
+    exec(execute_mult_streams, "Multiple streams, single thread", nullptr, true, true);
+    exec(execute_mult_streams, "Multiple streams, multiple threads", &pool, true, true);
 
     for (size_t i = 0; i < messages.size(); ++i)
         std::cout << messages[i] << " time: " << times[i] << " ms.\n";
