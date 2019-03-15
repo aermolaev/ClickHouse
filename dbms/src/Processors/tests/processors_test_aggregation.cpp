@@ -23,6 +23,7 @@
 #include <Processors/Executors/PipelineExecutor.h>
 #include <Processors/Transforms/AggregatingTransform.h>
 #include <AggregateFunctions/AggregateFunctionFactory.h>
+#include <DataTypes/DataTypeFactory.h>
 #include <Processors/Transforms/MergingAggregatedTransform.h>
 #include <AggregateFunctions/registerAggregateFunctions.h>
 #include <Processors/Transforms/MergingAggregatedMemoryEfficientTransform.h>
@@ -214,7 +215,7 @@ try
         size_t max_rows_to_group_by = 0; /// All.
         size_t group_by_two_level_threshold = two_level ? 10 : 0;
         size_t group_by_two_level_threshold_bytes = two_level ? 128 : 0;
-        size_t max_bytes_before_external_group_by = external ? 256 : 0;
+        size_t max_bytes_before_external_group_by = external ? 1000000 : 0;
 
         Aggregator::Params params(
                 source1->getPort().getHeader(),
