@@ -376,7 +376,13 @@ void SortingAggregatedTransform::addChunk(Chunk chunk)
     if (is_overflows)
         overflow_chunk = std::move(chunk);
     else
+    {
+        if (chunks[bucket])
+            throw Exception("SortingAggregatedTransform already got bucket with number " + toString(bucket),
+                    ErrorCodes::LOGICAL_ERROR);
+
         chunks[bucket] = std::move(chunk);
+    }
 }
 
 IProcessor::Status SortingAggregatedTransform::prepare()

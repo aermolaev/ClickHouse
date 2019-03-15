@@ -230,12 +230,12 @@ void AggregatingTransform::initGenerate()
 
     if (params->aggregator.hasTemporaryFiles())
     {
+        if (variants.isConvertibleToTwoLevel())
+            variants.convertToTwoLevel();
+
         /// Flush data in the RAM to disk also. It's easier than merging on-disk and RAM data.
         if (many_data->variants.size() > 1 && variants.size())
             params->aggregator.writeToTemporaryFile(variants);
-
-        if (variants.isConvertibleToTwoLevel())
-            variants.convertToTwoLevel();
     }
 
     if (many_data->num_finished.fetch_add(1) + 1 < many_data->variants.size())
