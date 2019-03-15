@@ -29,6 +29,7 @@
 #include <Poco/ConsoleChannel.h>
 #include <Poco/AutoPtr.h>
 #include <Common/CurrentThread.h>
+#include <Poco/Path.h>
 
 
 using namespace DB;
@@ -184,6 +185,8 @@ try
     registerAggregateFunctions();
     auto & factory = AggregateFunctionFactory::instance();
 
+    auto cur_path = Poco::Path().absolute().toString();
+
     auto execute_one_stream = [&](String msg, ThreadPool * pool, bool two_level, bool external)
     {
         std::cerr << '\n' << msg << "\n";
@@ -226,7 +229,7 @@ try
                 group_by_two_level_threshold_bytes,
                 max_bytes_before_external_group_by,
                 false, /// empty_result_for_aggregation_by_empty_set
-                "", /// tmp_path
+                cur_path, /// tmp_path
                 1 /// max_threads
             );
 
@@ -300,7 +303,7 @@ try
                 group_by_two_level_threshold_bytes,
                 max_bytes_before_external_group_by,
                 false, /// empty_result_for_aggregation_by_empty_set
-                "", /// tmp_path
+                cur_path, /// tmp_path
                 1 /// max_threads
         );
 
