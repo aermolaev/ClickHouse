@@ -267,7 +267,7 @@ void AggregatingTransform::initGenerate()
             }
         }
 
-        auto & header = outputs.front().getHeader();
+        auto header = params->aggregator.getHeader(false);
 
         const auto & files = params->aggregator.getTemporaryFiles();
         BlockInputStreams input_streams;
