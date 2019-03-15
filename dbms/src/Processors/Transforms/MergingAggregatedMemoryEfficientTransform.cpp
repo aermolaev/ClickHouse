@@ -76,7 +76,7 @@ bool GroupingAggregatedTransform::tryPushTwoLevelData()
             return false;
         }
 
-        pushData(std::move(cur_chunks), current_bucket, false);
+        pushData(std::move(cur_chunks), batch_it->first, false);
         chunks.erase(batch_it);
         return true;
     };
