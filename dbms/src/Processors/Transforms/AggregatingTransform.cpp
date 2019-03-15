@@ -234,7 +234,7 @@ void AggregatingTransform::initGenerate()
             variants.convertToTwoLevel();
 
         /// Flush data in the RAM to disk also. It's easier than merging on-disk and RAM data.
-        if (many_data->variants.size() > 1 && variants.size())
+        if (variants.size())
             params->aggregator.writeToTemporaryFile(variants);
     }
 
