@@ -28,6 +28,7 @@
 #include <Processors/Transforms/MergingAggregatedMemoryEfficientTransform.h>
 #include <Poco/ConsoleChannel.h>
 #include <Poco/AutoPtr.h>
+#include <Common/CurrentThread.h>
 
 
 using namespace DB;
@@ -173,6 +174,7 @@ int main(int, char **)
 try
 {
     ThreadStatus thread_status;
+    auto thread_group = CurrentThread::getGroup();
 
     Poco::AutoPtr<Poco::ConsoleChannel> channel = new Poco::ConsoleChannel(std::cerr);
     Logger::root().setChannel(channel);
@@ -352,7 +354,17 @@ try
     auto exec = [&](auto func, String msg, ThreadPool * pool, bool two_level, bool external)
     {
         msg += ", two_level = " + toString(two_level) + ", external = " + toString(external);
-        auto time = measure<>::execution(func, msg, pool, two_level, external);
+        Int64 time = 0;
+
+        auto wrapper = [&]()
+        {
+            CurrentThread::attachToIfDetached(thread_group);
+            time = measure<>::execution(func, msg, pool, two_level, external);
+        };
+
+        std::thread thread(wrapper);
+        thread.join();
+
         messages.emplace_back(msg);
         times.emplace_back(time);
     };
